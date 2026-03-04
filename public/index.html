@@ -71,7 +71,11 @@
     var fileNameEl = document.getElementById('fileName');
 
     function setFile(file) {
-      if (!file) return;
+      if (!file) {
+        dropText.hidden = false;
+        fileNameEl.textContent = '';
+        return;
+      }
       if (!file.name.toLowerCase().endsWith('.rtf')) {
         msg.textContent = 'Please choose an .rtf file.';
         msg.className = 'msg err';
@@ -81,6 +85,7 @@
       var dt = new DataTransfer();
       dt.items.add(file);
       rtf.files = dt.files;
+      dropText.hidden = true;
       fileNameEl.textContent = file.name;
     }
 
@@ -96,7 +101,7 @@
     });
     rtf.addEventListener('change', function () {
       var file = rtf.files && rtf.files[0];
-      fileNameEl.textContent = file ? file.name : '';
+      setFile(file);
     });
 
     function show(txt, type) {
