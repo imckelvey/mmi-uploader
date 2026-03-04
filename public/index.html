@@ -118,7 +118,12 @@
       var url = (location.origin === 'file://' || location.origin === 'null') ? 'http://localhost:3000/process' : '/process';
 
       fetch(url, { method: 'POST', body: fd })
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+          return r.json().catch(function () { return { success: false, error: 'Server returned an invalid response (try again in a moment).' }; }).then(function (data) {
+            if (!r.ok) return { success: false, error: data.error || 'Request failed (' + r.status + ')' };
+            return data;
+          });
+        })
         .then(function (data) {
           if (data.success) {
             if (data.content != null && data.filename) {
@@ -134,8 +139,11 @@
             show(data.error || 'Processing failed', 'err');
           }
         })
-        .catch(function () {
-          show('Cannot reach server. Run "npm start" in the MMI uploader folder and open http://localhost:3000.', 'err');
+        .catch(function (e) {
+          var hint = (location.origin === 'file://' || location.origin === 'null')
+            ? ' Run "npm start" in the MMI uploader folder and open http://localhost:3000.'
+            : ' If the app was just opened, wait a minute for the server to wake up and try again.';
+          show('Cannot reach server.' + hint, 'err');
         })
         .finally(function () { btn.disabled = false; });
     };

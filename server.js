@@ -55,8 +55,12 @@ app.post('/process', upload.single('rtf'), (req, res) => {
     const text = rtfToText(req.file.buffer);
     const data = parseRtfContent(text);
     const content = applyToHtml(template, data);
-    fs.mkdirSync(outputDir, { recursive: true });
-    fs.writeFileSync(outputPath, content, 'utf8');
+    try {
+      fs.mkdirSync(outputDir, { recursive: true });
+      fs.writeFileSync(outputPath, content, 'utf8');
+    } catch (writeErr) {
+      console.warn('Could not save report to disk (e.g. read-only filesystem on host):', writeErr.message);
+    }
     res.json({ success: true, filename, content });
   } catch (err) {
     console.error(err);
