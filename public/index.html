@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MMI Content Uploader</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 2rem; max-width: 520px; margin-left: auto; margin-right: auto; }
+    h1 { font-size: 1.5rem; margin-top: 0; }
+    .field { margin-bottom: 1.25rem; }
+    label { display: block; font-weight: 500; margin-bottom: 0.35rem; }
+    input[type="file"] { width: 100%; }
+    input[type="text"] { width: 100%; padding: 0.5rem 0.6rem; border: 1px solid #ccc; border-radius: 6px; }
+    button { padding: 0.6rem 1.2rem; background: #2c7cb5; color: #fff; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+    button:hover { background: #236a9a; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .msg { margin-top: 1rem; padding: 0.75rem; border-radius: 6px; }
+    .msg.ok { background: #e8f5e9; color: #1b5e20; }
+    .msg.err { background: #ffebee; color: #b71c1c; }
+    .hint { font-size: 0.875rem; color: #666; margin-top: 0.25rem; }
+    .drop-zone {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      background: #fafafa;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #2c7cb5; background: #f0f7fc; }
+    .drop-zone .drop-text { color: #666; font-size: 0.95rem; }
+    .drop-zone .file-name { margin-top: 0.5rem; font-weight: 500; color: #2c7cb5; }
+    #rtf { position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1; } #form {padding-top: 2rem;}
+  </style>
+</head>
+<body>
+  <h1>MMI Content Uploader</h1>
+  <p>Upload an MMI <i>.rtf</i> file to generate this month’s report HTML.</p>
+  <!-- <p class="hint">Run <code>npm start</code> in the MMI uploader folder, then open <strong>http://localhost:3000</strong> (not the file path).</p> -->
+  <p class="hint">To get and RTF file: Go to the Google doc for the MMI/QMI month you would like to generate a report for: <strong>File > Download > Rich Text Format (.rtf)</strong></p>
+  <img src="https://fmg-websites-custom.s3.amazonaws.com/ian/mmi/mmi-uploader-deploy-test-1/public/images/googleDocToRTFDownloadScreenshot.jpg" alt="RTF Download Instructions" style="width: 100%; height: auto;">
+
+  <form id="form">
+    <div class="field">
+      <label for="rtf">RTF file</label>
+      <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Drop RTF file or click to choose">
+        <span class="drop-text" id="dropText">Drag file here or click to upload</span>
+        <span class="file-name" id="fileName" aria-live="polite"></span>
+      </div>
+      <input type="file" id="rtf" name="rtf" accept=".rtf" required>
+    </div>
+    <div class="field">
+      <label for="filename">Output filename</label>
+      <input type="text" id="filename" name="filename" placeholder="e.g. feb_mmi_2026_fmg.html">
+      <p class="hint">Optional. Leave blank to derive from the RTF name.</p>
+    </div>
+    <button type="submit" id="btn">Generate MMI Report Code</button>
+  </form>
+
+  <div id="msg" class="msg" role="alert" hidden></div>
+
+  <script>
+    var form = document.getElementById('form');
+    var rtf = document.getElementById('rtf');
+    var filename = document.getElementById('filename');
+    var btn = document.getElementById('btn');
+    var msg = document.getElementById('msg');
+    var dropZone = document.getElementById('dropZone');
+    var dropText = document.getElementById('dropText');
+    var fileNameEl = document.getElementById('fileName');
+
+    function setFile(file) {
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith('.rtf')) {
+        msg.textContent = 'Please choose an .rtf file.';
+        msg.className = 'msg err';
+        msg.hidden = false;
+        return;
+      }
+      var dt = new DataTransfer();
+      dt.items.add(file);
+      rtf.files = dt.files;
+      fileNameEl.textContent = file.name;
+    }
+
+    dropZone.addEventListener('click', function () { rtf.click(); });
+    dropZone.addEventListener('dragover', function (e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', function (e) { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('dragover');
+      var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      setFile(file);
+    });
+    rtf.addEventListener('change', function () {
+      var file = rtf.files && rtf.files[0];
+      fileNameEl.textContent = file ? file.name : '';
+    });
+
+    function show(txt, type) {
+      msg.textContent = txt;
+      msg.className = 'msg ' + (type === 'ok' ? 'ok' : 'err');
+      msg.hidden = false;
+    }
+
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      msg.hidden = true;
+      btn.disabled = true;
+
+      var fd = new FormData();
+      fd.append('rtf', rtf.files[0]);
+      var fn = filename.value.trim();
+      if (fn) fd.append('filename', fn.endsWith('.html') ? fn : fn + '.html');
+
+      var url = (location.origin === 'file://' || location.origin === 'null') ? 'http://localhost:3000/process' : '/process';
+
+      fetch(url, { method: 'POST', body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.success) {
+            if (data.content != null && data.filename) {
+              var blob = new Blob([data.content], { type: 'text/html' });
+              var a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = data.filename;
+              a.click();
+              URL.revokeObjectURL(a.href);
+            }
+            show('Downloaded: ' + data.filename, 'ok');
+          } else {
+            show(data.error || 'Processing failed', 'err');
+          }
+        })
+        .catch(function () {
+          show('Cannot reach server. Run "npm start" in the MMI uploader folder and open http://localhost:3000.', 'err');
+        })
+        .finally(function () { btn.disabled = false; });
+    };
+  </script>
+</body>
+</html>
