@@ -2,9 +2,11 @@ const path = require('path');
 const fs = require('fs');
 const express = require('express');
 const multer = require('multer');
+const getRtfFromUpload = require('./lib/getRtfFromUpload');
 const rtfToText = require('./lib/rtfToText');
 const parseRtfContent = require('./lib/parseRtfContent');
 const applyToHtml = require('./lib/applyToHtml');
+const { ocrByTheNumbers } = require('./lib/ocrByTheNumbers');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,7 +18,7 @@ const ABBREV = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec'.split('|');
 
 function outputFilename(rtfName, custom) {
   if (custom && custom.trim()) return custom.trim().endsWith('.html') ? custom.trim() : custom.trim() + '.html';
-  const base = path.basename(rtfName, '.rtf').replace(/\.rtf$/i, '');
+  const base = path.basename(rtfName).replace(/\.(rtf|rtfd|zip)$/i, '');
   const m = base.match(/(\w+)\s+(\d{4})\s*MMI/i) || base.match(/(\w+)\s+(\d{4})/i);
   if (m) {
     const i = MONTHS.indexOf((m[1] || '').toLowerCase());
@@ -28,7 +30,11 @@ function outputFilename(rtfName, custom) {
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_, file, cb) => file.originalname.toLowerCase().endsWith('.rtf') ? cb(null, true) : cb(new Error('Only .rtf files are allowed')),
+  fileFilter: (_, file, cb) => {
+    const name = (file.originalname || '').toLowerCase();
+    const ok = name.endsWith('.rtf') || name.endsWith('.rtfd') || name.endsWith('.zip');
+    cb(ok ? null : new Error('Only .rtf, .rtfd, or .zip files are allowed'), ok);
+  },
 });
 
 app.use(express.json());
@@ -41,8 +47,8 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/process', upload.single('rtf'), (req, res) => {
-  if (!req.file) return res.status(400).json({ success: false, error: 'No .rtf file uploaded' });
+app.post('/process', upload.single('rtf'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
 
   const filename = outputFilename(req.file.originalname, req.body && req.body.filename);
   const outputPath = path.join(outputDir, filename);
@@ -51,9 +57,23 @@ app.post('/process', upload.single('rtf'), (req, res) => {
   try { template = fs.readFileSync(templatePath, 'utf8'); }
   catch (e) { return res.status(500).json({ success: false, error: 'Template not found: dec_mmi_2025_fmg.html' }); }
 
+  let uploadResult;
+  try { uploadResult = getRtfFromUpload(req.file.buffer); }
+  catch (e) { return res.status(400).json({ success: false, error: e.message || 'Could not extract RTF from upload' }); }
+
+  const { rtfBuffer, byTheNumbersImage } = uploadResult;
+
   try {
-    const text = rtfToText(req.file.buffer);
+    const text = rtfToText(rtfBuffer);
     const data = parseRtfContent(text);
+    if (byTheNumbersImage && byTheNumbersImage.buffer) {
+      try {
+        const ocrItems = await ocrByTheNumbers(byTheNumbersImage.buffer);
+        if (ocrItems.length > 0) data.byTheNumbersItems = ocrItems;
+      } catch (ocrErr) {
+        console.warn('By the Numbers OCR failed:', ocrErr.message);
+      }
+    }
     const content = applyToHtml(template, data);
     try {
       fs.mkdirSync(outputDir, { recursive: true });

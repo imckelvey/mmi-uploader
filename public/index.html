@@ -102,7 +102,7 @@
 </head>
 <body>
   <h1>MMI Content Uploader</h1>
-  <p>Upload an MMI <i>.rtf</i> file to generate this month’s report HTML.</p>
+  <p>Upload an MMI <i>.rtf</i>, <i>.rtfd</i>, or <i>.zip</i> file to generate this month’s report HTML.</p>
   <!-- <p class="hint">Run <code>npm start</code> in the MMI uploader folder, then open <strong>http://localhost:3000</strong> (not the file path).</p> -->
   <p class="hint">To get and RTF file: Go to the Google doc for the MMI/QMI month you would like to generate a report for: <strong>File > Download > Rich Text Format (.rtf)</strong></p>
   <img src="https://fmg-websites-custom.s3.amazonaws.com/ian/mmi/mmi-uploader-deploy-test-1/public/images/googleDocToRTFDownloadScreenshot.jpg" alt="RTF Download Instructions" style="width: 100%; height: auto;">
@@ -114,7 +114,7 @@
         <span class="drop-text" id="dropText">Drag file here or click to upload</span>
         <span class="file-name" id="fileName" aria-live="polite"></span>
       </div>
-      <input type="file" id="rtf" name="rtf" accept=".rtf" required>
+      <input type="file" id="rtf" name="rtf" accept=".rtf,.rtfd,.zip" required>
     </div>
     <div class="field">
       <label for="filename">Output filename</label>
@@ -142,8 +142,9 @@
         fileNameEl.textContent = '';
         return;
       }
-      if (!file.name.toLowerCase().endsWith('.rtf')) {
-        msg.textContent = 'Please choose an .rtf file.';
+      var ext = file.name.toLowerCase().split('.').pop();
+      if (ext !== 'rtf' && ext !== 'rtfd' && ext !== 'zip') {
+        msg.textContent = 'Please choose an .rtf, .rtfd, or .zip file.';
         msg.className = 'msg err';
         msg.hidden = false;
         return;
