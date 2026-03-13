@@ -47,6 +47,18 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, 'public')));
 
+// So you can confirm deployed app matches local (same code, template, Node)
+app.get('/version', (req, res) => {
+  const pkg = require('./package.json');
+  const templateExists = fs.existsSync(templatePath);
+  res.json({
+    version: pkg.version,
+    node: process.version,
+    template: templateExists ? 'ok' : 'missing',
+    templatePath: templatePath,
+  });
+});
+
 app.post('/process', upload.single('rtf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
 
