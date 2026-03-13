@@ -97,7 +97,36 @@
     .drop-zone .drop-text { color: #666; font-size: 20px; font-weight: 400; }
     .drop-zone .file-name { margin-top: 8px; font-weight: 500; font-size: 18px; color: #2c7cb5; }
     #rtf { position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1; }
-    #form { padding-top: 24px; }
+    #form { padding-top: 24px; position: relative; }
+    .generating-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.92);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .generating-overlay.visible { display: flex; }
+    .generating-overlay .generating-text {
+      font-family: 'Rubik', 'Source Sans Pro', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 24px;
+      font-weight: 500;
+      color: #626A97;
+    }
+    .generating-overlay .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(131, 139, 197, 0.25);
+      border-top-color: #35A2B1;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -126,6 +155,11 @@
 
   <div id="msg" class="msg" role="alert" hidden></div>
 
+  <div id="generatingOverlay" class="generating-overlay" role="status" aria-live="polite" aria-label="Report generating">
+    <div class="spinner" aria-hidden="true"></div>
+    <span class="generating-text">Report generating</span>
+  </div>
+
   <script>
     var form = document.getElementById('form');
     var rtf = document.getElementById('rtf');
@@ -135,6 +169,7 @@
     var dropZone = document.getElementById('dropZone');
     var dropText = document.getElementById('dropText');
     var fileNameEl = document.getElementById('fileName');
+    var generatingOverlay = document.getElementById('generatingOverlay');
 
     function setFile(file) {
       if (!file) {
@@ -181,6 +216,7 @@
       e.preventDefault();
       msg.hidden = true;
       btn.disabled = true;
+      generatingOverlay.classList.add('visible');
 
       var fd = new FormData();
       fd.append('rtf', rtf.files[0]);
@@ -217,7 +253,10 @@
             : ' If the app was just opened, wait a minute for the server to wake up and try again.';
           show('Cannot reach server.' + hint, 'err');
         })
-        .finally(function () { btn.disabled = false; });
+        .finally(function () {
+          btn.disabled = false;
+          generatingOverlay.classList.remove('visible');
+        });
     };
   </script>
 </body>
