@@ -81,7 +81,7 @@ app.post('/process', upload.single('rtf'), async (req, res) => {
     const text = rtfToText(rtfBuffer);
     console.log('[MMI] RTF->text: len=' + (text ? text.length : 0) + ' preview=' + (text ? text.slice(0, 120).replace(/\n/g, ' ') : '') + '...');
     const data = parseRtfContent(text);
-    console.log('[MMI] Parse: sectionTitle=' + (data.sectionTitle || '') + ' introParas=' + (data.introParagraphs && data.introParagraphs.length) + ' subsections=' + (data.subsections && data.subsections.length));
+    console.log('[MMI] Parse: sectionTitle=' + (data.sectionTitle || '') + ' introParas=' + (data.introParagraphs && data.introParagraphs.length) + ' subsections=' + (data.subsections && data.subsections.length) + ' worldRecapRows=' + (data.worldRecapRows && data.worldRecapRows.length));
     if (byTheNumbersImage && byTheNumbersImage.buffer) {
       try {
         const ocrItems = await ocrByTheNumbers(byTheNumbersImage.buffer);
