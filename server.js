@@ -74,10 +74,14 @@ app.post('/process', upload.single('rtf'), async (req, res) => {
   catch (e) { return res.status(400).json({ success: false, error: e.message || 'Could not extract RTF from upload' }); }
 
   const { rtfBuffer, byTheNumbersImage } = uploadResult;
+  const isZip = req.file.buffer[0] === 0x50 && req.file.buffer[1] === 0x4b;
+  console.log('[MMI] Upload: size=' + req.file.buffer.length + ' isZip=' + isZip + ' rtfLen=' + rtfBuffer.length);
 
   try {
     const text = rtfToText(rtfBuffer);
+    console.log('[MMI] RTF->text: len=' + (text ? text.length : 0) + ' preview=' + (text ? text.slice(0, 120).replace(/\n/g, ' ') : '') + '...');
     const data = parseRtfContent(text);
+    console.log('[MMI] Parse: sectionTitle=' + (data.sectionTitle || '') + ' introParas=' + (data.introParagraphs && data.introParagraphs.length) + ' subsections=' + (data.subsections && data.subsections.length));
     if (byTheNumbersImage && byTheNumbersImage.buffer) {
       try {
         const ocrItems = await ocrByTheNumbers(byTheNumbersImage.buffer);
